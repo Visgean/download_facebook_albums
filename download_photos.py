@@ -8,9 +8,8 @@ from slugify import slugify
 
 
 class ImageDownloader:
-    def __init__(self, token, target=None, data_folder='data', pool_size=10):
+    def __init__(self, token, data_folder='data', pool_size=10):
         self.graph_api = facebook.GraphAPI(token)
-        self.target = target
         self.data_folder = data_folder
         self.pool_size = pool_size
 
@@ -26,9 +25,7 @@ class ImageDownloader:
     def process_album(self, album, after=None):
         album_url = '{album_id}/photos'.format(album_id=album['id'])
         fields = ['images']
-        data = self.graph_api.get_object(album_url, after=after, fields=fields) if after else self.graph_api.get_object(
-            album_url,
-            fields=fields)
+        data = self.graph_api.get_object(album_url, after=after, fields=fields) if after else self.graph_api.get_object(album_url, fields=fields)
         image_blobs = data['data']
         if 'paging' in data and 'after' in data['paging']['cursors']:
             image_blobs += self.process_album(album, after=data['paging']['cursors']['after'])
@@ -40,9 +37,12 @@ class ImageDownloader:
             folder_name = os.path.join(self.data_folder, slugify(user), slugify(f_album['name']))
             if not os.path.isdir(folder_name):
                 os.makedirs(folder_name)
-            self.image_pool += [(blob['images'][0]['source'], folder_name) for blob in self.process_album(f_album) if
-                                blob]
+            self.image_pool += [(blob['images'][0]['source'], folder_name) for blob in self.process_album(f_album)]
 
+    def scrap_friends(self):
+        friends = [f['username'] if f.has_key('username') else f['id'] for f in self.graph_api.get_object('/me/friends/', fields = ['username'], limit=5000)['data']]
+        for friend in friends:
+            self.scrap_user(friend)
 
     def download_image(self, tupple_args):
         url_to_grab, image_folder = tupple_args
@@ -50,14 +50,14 @@ class ImageDownloader:
         urllib.urlretrieve(url_to_grab, os.path.join(image_folder, basename))
 
     def start_pool(self):
-        pool = ThreadPool(10)
-        pool.map(self.image_pool, self.download_image())
+        pool = ThreadPool(self.pool_size)
+        pool.map(self.download_image, self.image_pool)
 
 
 if __name__ == '__main__':
     oauth_access_token = raw_input('Token from https://developers.facebook.com/tools/explorer/: ')
-
-    user = raw_input('user/page: ')
-
-    print 'Starting pools'
-
+    fd = ImageDownloader(oauth_access_token)
+    fd.scrap_user('me')
+    fd.scrap_friends()
+    print 'Downloading images'
+    fd.start_pool()
