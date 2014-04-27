@@ -1,0 +1,10 @@
+
+*.pyc
+*.pyo
+*.db
+.project
+.pydevproject
+.settings
+locale/*
+.idea/
+.codeintel/
