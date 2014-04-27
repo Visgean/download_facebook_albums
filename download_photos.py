@@ -58,6 +58,6 @@ if __name__ == '__main__':
     oauth_access_token = raw_input('Token from https://developers.facebook.com/tools/explorer/: ')
     fd = ImageDownloader(oauth_access_token)
     fd.scrap_user('me')
-    fd.scrap_friends()
+    # fd.scrap_friends()            # this takes a long time - you would need better token
     print 'Downloading images'
     fd.start_pool()
